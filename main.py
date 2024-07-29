@@ -2,6 +2,8 @@ import xml.etree.ElementTree as ET
 import time
 from random import randint
 from typing import List, Dict
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 class Place:
     def __init__(self, id: str, label: str, marking: int = 0, x: int = 0, y: int = 0):
@@ -10,11 +12,18 @@ class Place:
         self.marking = marking
         self.position = [x, y]
         self.offset = [0, 0]
+        self.semaphore = threading.Semaphore(1)
     
     def add_tokens(self, count: int):
-        ...
+        with self.semaphore:
+            self.marking += count
+
     def remove_tokens(self, count: int):
-        ...
+        with self.semaphore:
+            if self.marking >= count:
+                self.marking -= count
+                return True
+            return False
 
     def __str__(self):
         return f"{self.label} (tokens: {self.marking})"
@@ -25,6 +34,32 @@ class Transition:
         self.label = label
         self.position = [x, y]
         self.offset = [0, 0]
+        self.input_arcs = []
+        self.output_arcs = []
+
+    def add_input_arc(self, arc):
+        self.input_arcs.append(arc)
+
+    def add_output_arc(self, arc):
+        self.output_arcs.append(arc)
+
+    def is_enabled(self):
+        return all(arc.source.marking >= arc.weight for arc in self.input_arcs)
+
+    def fire(self):
+        if not self.is_enabled():
+            return False
+
+        # Remove tokens from input places
+        for arc in self.input_arcs:
+            if not arc.source.remove_tokens(arc.weight):
+                return False
+
+        # Add tokens to output places
+        for arc in self.output_arcs:
+            arc.target.add_tokens(arc.weight)
+
+        return True
 
     def __str__(self):
         return self.label
@@ -56,6 +91,21 @@ class PetriNet:
 
     def add_arc(self, arc: Arc):
         self.arcs.append(arc)
+        if isinstance(arc.source, Place):
+            if isinstance(arc.target, Transition):
+                arc.target.add_input_arc(arc)
+            else:
+                print(f"Warning: Invalid arc {arc.id} from Place to Place")
+        elif isinstance(arc.source, Transition):
+            if isinstance(arc.target, Place):
+                arc.source.add_output_arc(arc)
+            else:
+                print(f"Warning: Invalid arc {arc.id} from Transition to Transition")
+        else:
+            print(f"Warning: Invalid arc {arc.id} with unknown source type")
+
+    def get_enabled_transitions(self):
+        return [t for t in self.transitions.values() if t.is_enabled()]
 
     def __str__(self):
         text = f"--- Net: {self.name}\nTransitions: "
@@ -66,6 +116,39 @@ class PetriNet:
         text += "\n".join(str(a) for a in self.arcs)
         text += "\n---"
         return text
+
+class PetriNetSimulator:
+    def __init__(self, petri_net: PetriNet, max_iterations: int):
+        self.petri_net = petri_net
+        self.max_iterations = max_iterations
+        self.iteration = 0
+
+    def simulate(self):
+        while self.iteration < self.max_iterations:
+            enabled_transitions = self.petri_net.get_enabled_transitions()
+            if not enabled_transitions:
+                print(f"No more enabled transitions. Simulation ended at iteration {self.iteration}.")
+                break
+
+            print(f"\nIteration {self.iteration + 1}:")
+            with ThreadPoolExecutor() as executor:
+                futures = [executor.submit(self.fire_transition, t) for t in enabled_transitions]
+                for future in futures:
+                    future.result()
+
+            self.iteration += 1
+            self.print_state()
+
+        print("\nSimulation completed.")
+
+    def fire_transition(self, transition: Transition):
+        if transition.fire():
+            print(f"Fired transition: {transition}")
+
+    def print_state(self):
+        print("Current state:")
+        for place in self.petri_net.places.values():
+            print(f"  {place}")
 
 def parse_pnml(file_path: str) -> List[PetriNet]:
     tree = ET.parse(file_path)
@@ -126,12 +209,18 @@ def parse_pnml(file_path: str) -> List[PetriNet]:
     return nets
 
 def main():
-    file_path = "example.pnml"
-    petri_nets = parse_pnml(file_path)
+    # file_path = input("Enter the path to the .pnml file: ")
+    file_path = "teste2.pnml"
+    # max_iterations = int(input("Enter the maximum number of iterations: "))
+    max_iterations = 4
 
+    petri_nets = parse_pnml(file_path)
+    
     for i, net in enumerate(petri_nets, 1):
-        print(f"\nPetri Net {i}:")
+        print(f"\nSimulating Petri Net {i}:")
         print(net)
+        simulator = PetriNetSimulator(net, max_iterations)
+        simulator.simulate()
 
 if __name__ == "__main__":
     main()

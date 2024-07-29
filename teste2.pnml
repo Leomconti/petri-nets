@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pnml>
+    <net id="sequenceNet" type="http://www.pnml.org/version-2009/grammar/ptnet">
+        <name>
+            <text>Sequence Petri Net</text>
+        </name>
+        <page id="page1">
+            <place id="p0">
+                <name>
+                    <text>P0</text>
+                    <graphics>
+                        <offset x="0" y="0"/>
+                    </graphics>
+                </name>
+                <graphics>
+                    <position x="50" y="50"/>
+                </graphics>
+                <initialMarking>
+                    <text>1</text>
+                </initialMarking>
+            </place>
+            <place id="p1">
+                <name>
+                    <text>P1</text>
+                    <graphics>
+                        <offset x="0" y="0"/>
+                    </graphics>
+                </name>
+                <graphics>
+                    <position x="250" y="50"/>
+                </graphics>
+                <initialMarking>
+                    <text>0</text>
+                </initialMarking>
+            </place>
+            <place id="p2">
+                <name>
+                    <text>P2</text>
+                    <graphics>
+                        <offset x="0" y="0"/>
+                    </graphics>
+                </name>
+                <graphics>
+                    <position x="450" y="50"/>
+                </graphics>
+                <initialMarking>
+                    <text>0</text>
+                </initialMarking>
+            </place>
+            <transition id="t1">
+                <name>
+                    <text>T1</text>
+                    <graphics>
+                        <offset x="0" y="0"/>
+                    </graphics>
+                </name>
+                <graphics>
+                    <position x="150" y="50"/>
+                </graphics>
+            </transition>
+            <transition id="t2">
+                <name>
+                    <text>T2</text>
+                    <graphics>
+                        <offset x="0" y="0"/>
+                    </graphics>
+                </name>
+                <graphics>
+                    <position x="350" y="50"/>
+                </graphics>
+            </transition>
+            <arc id="a1" source="p0" target="t1">
+                <inscription>
+                    <text>1</text>
+                </inscription>
+                <graphics/>
+            </arc>
+            <arc id="a2" source="t1" target="p1">
+                <inscription>
+                    <text>1</text>
+                </inscription>
+                <graphics/>
+            </arc>
+            <arc id="a3" source="p1" target="t2">
+                <inscription>
+                    <text>1</text>
+                </inscription>
+                <graphics/>
+            </arc>
+            <arc id="a4" source="t2" target="p2">
+                <inscription>
+                    <text>1</text>
+                </inscription>
+                <graphics/>
+            </arc>
+        </page>
+    </net>
+</pnml>
