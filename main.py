@@ -56,7 +56,6 @@ class Arc:
         self.source = source
         self.target = target
         self.weight = weight
-
 class PetriNet:
     def __init__(self):
         self.places = {}
@@ -76,13 +75,35 @@ class PetriNet:
         with self.global_lock:
             self.arcs[arc.id] = arc
             if isinstance(arc.source, Place):
-                arc.target.add_input_arc(arc)
+                if isinstance(arc.target, Transition):
+                    arc.target.add_input_arc(arc)
+                else:
+                    raise ValueError("Arc from Place must go to a Transition")
+            elif isinstance(arc.source, Transition):
+                if isinstance(arc.target, Place):
+                    arc.source.add_output_arc(arc)
+                else:
+                    raise ValueError("Arc from Transition must go to a Place")
             else:
-                arc.target.add_output_arc(arc)
+                raise ValueError("Invalid arc: source must be either Place or Transition")
+
 
     def get_enabled_transitions(self) -> List[Transition]:
         with self.global_lock:
             return [t for t in self.transitions.values() if t.is_enabled()]
+
+    def print_net(self):
+        with self.global_lock:
+            print("Petri Net:")
+            print("Places:")
+            for place in self.places.values():
+                print(f"  Place ID: {place.id}, Name: {place.name}, Tokens: {place.tokens}")
+            print("Transitions:")
+            for transition in self.transitions.values():
+                print(f"  Transition ID: {transition.id}, Name: {transition.name}")
+            print("Arcs:")
+            for arc in self.arcs.values():
+                print(f"  Arc ID: {arc.id}, Source: {arc.source.id}, Target: {arc.target.id}, Weight: {arc.weight}")
 
 class PetriNetExecutor:
     def __init__(self, petri_net: PetriNet, iterations: int):
@@ -102,14 +123,11 @@ class PetriNetExecutor:
                     future.result()  # Wait for all transitions to complete
 
                 with self.execution_lock:
-                    self.state_change.wait()  # Wait for all transitions to update the network state
                     self.print_network_state()
 
     def execute_transition(self, transition: Transition):
         if transition.execute():
             print(f"Executed transition: {transition.name}")
-            with self.execution_lock:
-                self.state_change.notify_all()  # Notify that a state change has occurred
 
     def print_network_state(self):
         print("Network state:")
@@ -123,33 +141,36 @@ def parse_pnml(file_path: str) -> PetriNet:
 
     for place in root.findall(".//place"):
         id = place.get('id')
-        name = place.find('name/text').text if place.find('name/text') is not None else id
-        initial_marking = int(place.find('initialMarking/text').text) if place.find('initialMarking/text') is not None else 0
-        petri_net.add_place(Place(id, name, initial_marking))
+        name = place.find('name/text').text if place.find('name/text') is not None else id # type: ignore
+        initial_marking = int(place.find('initialMarking/text').text) if place.find('initialMarking/text') is not None else 0 # type: ignore
+        petri_net.add_place(Place(id, name, initial_marking)) # type: ignore
 
     for transition in root.findall(".//transition"):
         id = transition.get('id')
-        name = transition.find('name/text').text if transition.find('name/text') is not None else id
-        petri_net.add_transition(Transition(id, name))
+        name = transition.find('name/text').text if transition.find('name/text') is not None else id # type: ignore
+        petri_net.add_transition(Transition(id, name)) # type: ignore
 
     for arc in root.findall(".//arc"):
         id = arc.get('id')
         source_id = arc.get('source')
         target_id = arc.get('target')
-        weight = int(arc.find('inscription/text').text) if arc.find('inscription/text') is not None else 1
+        weight = int(arc.find('inscription/text').text) if arc.find('inscription/text') is not None else 1 # type: ignore
 
         source = petri_net.places.get(source_id) or petri_net.transitions.get(source_id)
         target = petri_net.places.get(target_id) or petri_net.transitions.get(target_id)
 
-        petri_net.add_arc(Arc(id, source, target, weight))
+        petri_net.add_arc(Arc(id, source, target, weight)) # type: ignore
 
     return petri_net
 
 def main():
-    file_path = input("Enter the path to the .pnml file: ")
-    iterations = int(input("Enter the number of iterations: "))
+    # file_path = input("Enter the path to the .pnml file: ")
+    file_path = "example.pnml"
+    # iterations = int(input("Enter the number of iterations: "))
+    iterations = 50
 
     petri_net = parse_pnml(file_path)
+    print(petri_net.print_net())
     executor = PetriNetExecutor(petri_net, iterations)
     executor.execute()
 
