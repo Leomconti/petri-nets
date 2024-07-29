@@ -1,178 +1,137 @@
 import xml.etree.ElementTree as ET
-import threading
 import time
+from random import randint
 from typing import List, Dict
-from concurrent.futures import ThreadPoolExecutor
 
 class Place:
-    def __init__(self, id: str, name: str, tokens: int = 0):
+    def __init__(self, id: str, label: str, marking: int = 0, x: int = 0, y: int = 0):
         self.id = id
-        self.name = name
-        self.tokens = tokens
-        self.semaphore = threading.Semaphore(1)
-
+        self.label = label
+        self.marking = marking
+        self.position = [x, y]
+        self.offset = [0, 0]
+    
     def add_tokens(self, count: int):
-        with self.semaphore:
-            self.tokens += count
-
+        ...
     def remove_tokens(self, count: int):
-        with self.semaphore:
-            if self.tokens >= count:
-                self.tokens -= count
-                return True
-            return False
+        ...
+
+    def __str__(self):
+        return f"{self.label} (tokens: {self.marking})"
 
 class Transition:
-    def __init__(self, id: str, name: str):
+    def __init__(self, id: str, label: str, x: int = 0, y: int = 0):
         self.id = id
-        self.name = name
-        self.input_arcs = []
-        self.output_arcs = []
-        self.semaphore = threading.Semaphore(1)
+        self.label = label
+        self.position = [x, y]
+        self.offset = [0, 0]
 
-    def add_input_arc(self, arc):
-        self.input_arcs.append(arc)
-
-    def add_output_arc(self, arc):
-        self.output_arcs.append(arc)
-
-    def is_enabled(self):
-        return all(arc.source.tokens >= arc.weight for arc in self.input_arcs)
-
-    def execute(self):
-        with self.semaphore:
-            if self.is_enabled():
-                for arc in self.input_arcs:
-                    if not arc.source.remove_tokens(arc.weight):
-                        return False
-                for arc in self.output_arcs:
-                    arc.target.add_tokens(arc.weight)
-                return True
-            return False
+    def __str__(self):
+        return self.label
 
 class Arc:
-    def __init__(self, id: str, source, target, weight: int = 1):
+    def __init__(self, id: str, source, target, weight: int = 1, arc_type: str = 'normal'):
         self.id = id
         self.source = source
         self.target = target
         self.weight = weight
+        self.type = arc_type
+
+    def __str__(self):
+        return f"{self.source} --> {self.target} (weight: {self.weight})"
+
 class PetriNet:
     def __init__(self):
-        self.places = {}
-        self.transitions = {}
-        self.arcs = {}
-        self.global_lock = threading.Lock()
+        self.id = f"PetriNet{str(time.time())}{str(randint(0, 1000))}"
+        self.name = ""
+        self.places: Dict[str, Place] = {}
+        self.transitions: Dict[str, Transition] = {}
+        self.arcs: List[Arc] = []
 
     def add_place(self, place: Place):
-        with self.global_lock:
-            self.places[place.id] = place
+        self.places[place.id] = place
 
     def add_transition(self, transition: Transition):
-        with self.global_lock:
-            self.transitions[transition.id] = transition
+        self.transitions[transition.id] = transition
 
     def add_arc(self, arc: Arc):
-        with self.global_lock:
-            self.arcs[arc.id] = arc
-            if isinstance(arc.source, Place):
-                if isinstance(arc.target, Transition):
-                    arc.target.add_input_arc(arc)
-                else:
-                    raise ValueError("Arc from Place must go to a Transition")
-            elif isinstance(arc.source, Transition):
-                if isinstance(arc.target, Place):
-                    arc.source.add_output_arc(arc)
-                else:
-                    raise ValueError("Arc from Transition must go to a Place")
-            else:
-                raise ValueError("Invalid arc: source must be either Place or Transition")
+        self.arcs.append(arc)
 
+    def __str__(self):
+        text = f"--- Net: {self.name}\nTransitions: "
+        text += " ".join(str(t) for t in self.transitions.values())
+        text += "\nPlaces: "
+        text += " ".join(str(p) for p in self.places.values())
+        text += "\nArcs:\n"
+        text += "\n".join(str(a) for a in self.arcs)
+        text += "\n---"
+        return text
 
-    def get_enabled_transitions(self) -> List[Transition]:
-        with self.global_lock:
-            return [t for t in self.transitions.values() if t.is_enabled()]
-
-    def print_net(self):
-        with self.global_lock:
-            print("Petri Net:")
-            print("Places:")
-            for place in self.places.values():
-                print(f"  Place ID: {place.id}, Name: {place.name}, Tokens: {place.tokens}")
-            print("Transitions:")
-            for transition in self.transitions.values():
-                print(f"  Transition ID: {transition.id}, Name: {transition.name}")
-            print("Arcs:")
-            for arc in self.arcs.values():
-                print(f"  Arc ID: {arc.id}, Source: {arc.source.id}, Target: {arc.target.id}, Weight: {arc.weight}")
-
-class PetriNetExecutor:
-    def __init__(self, petri_net: PetriNet, iterations: int):
-        self.petri_net = petri_net
-        self.iterations = iterations
-        self.execution_lock = threading.Lock()
-        self.state_change = threading.Condition(self.execution_lock)
-
-    def execute(self):
-        with ThreadPoolExecutor() as executor:
-            for i in range(self.iterations):
-                print(f"\nIteration {i + 1}:")
-                enabled_transitions = self.petri_net.get_enabled_transitions()
-                futures = [executor.submit(self.execute_transition, transition) for transition in enabled_transitions]
-                
-                for future in futures:
-                    future.result()  # Wait for all transitions to complete
-
-                with self.execution_lock:
-                    self.print_network_state()
-
-    def execute_transition(self, transition: Transition):
-        if transition.execute():
-            print(f"Executed transition: {transition.name}")
-
-    def print_network_state(self):
-        print("Network state:")
-        for place in self.petri_net.places.values():
-            print(f"  {place.name}: {place.tokens} tokens")
-
-def parse_pnml(file_path: str) -> PetriNet:
+def parse_pnml(file_path: str) -> List[PetriNet]:
     tree = ET.parse(file_path)
     root = tree.getroot()
-    petri_net = PetriNet()
+    nets = []
 
-    for place in root.findall(".//place"):
-        id = place.get('id')
-        name = place.find('name/text').text if place.find('name/text') is not None else id # type: ignore
-        initial_marking = int(place.find('initialMarking/text').text) if place.find('initialMarking/text') is not None else 0 # type: ignore
-        petri_net.add_place(Place(id, name, initial_marking)) # type: ignore
+    for net_node in root.findall(".//net"):
+        petri_net = PetriNet()
+        petri_net.id = net_node.get('id', petri_net.id)  # type: ignore
+        name_node = net_node.find(".//name/text")
+        petri_net.name = name_node.text if name_node is not None else petri_net.id  # type: ignore
 
-    for transition in root.findall(".//transition"):
-        id = transition.get('id')
-        name = transition.find('name/text').text if transition.find('name/text') is not None else id # type: ignore
-        petri_net.add_transition(Transition(id, name)) # type: ignore
+        for place_node in net_node.findall(".//place"):
+            place_id = place_node.get('id')  # type: ignore
+            name_node = place_node.find(".//name/text")
+            label = name_node.text if name_node is not None else place_id  # type: ignore
+            marking_node = place_node.find(".//initialMarking/text")
+            marking = int(marking_node.text) if marking_node is not None else 0  # type: ignore
+            graphics = place_node.find(".//graphics/position")
+            x, y = 0, 0
+            if graphics is not None:
+                x = int(float(graphics.get('x', 0)))
+                y = int(float(graphics.get('y', 0)))
+            place = Place(place_id, label, marking, x, y) # type: ignore
+            petri_net.add_place(place)
 
-    for arc in root.findall(".//arc"):
-        id = arc.get('id')
-        source_id = arc.get('source')
-        target_id = arc.get('target')
-        weight = int(arc.find('inscription/text').text) if arc.find('inscription/text') is not None else 1 # type: ignore
+        for transition_node in net_node.findall(".//transition"):
+            transition_id  = transition_node.get('id')  # type: ignore
+            name_node = transition_node.find(".//name/text")
+            label = name_node.text if name_node is not None else transition_id  # type: ignore
+            graphics = transition_node.find(".//graphics/position")
+            x, y = 0, 0
+            if graphics is not None:
+                x = int(float(graphics.get('x', 0)))
+                y = int(float(graphics.get('y', 0)))
+            transition = Transition(transition_id, label, x, y) # type: ignore
+            petri_net.add_transition(transition)
 
-        source = petri_net.places.get(source_id) or petri_net.transitions.get(source_id)
-        target = petri_net.places.get(target_id) or petri_net.transitions.get(target_id)
+        for arc_node in net_node.findall(".//arc"):
+            arc_id = arc_node.get('id')  
+            source_id = arc_node.get('source')  
+            target_id = arc_node.get('target')  
+            inscription_node = arc_node.find(".//inscription/text")
+            weight = int(inscription_node.text) if inscription_node is not None else 1  # type: ignore
+            arc_type = arc_node.get('type', 'normal')  
 
-        petri_net.add_arc(Arc(id, source, target, weight)) # type: ignore
+            source = petri_net.places.get(source_id) or petri_net.transitions.get(source_id)  # type: ignore
+            target = petri_net.places.get(target_id) or petri_net.transitions.get(target_id)  # type: ignore
 
-    return petri_net
+            if source is not None and target is not None:
+                arc = Arc(arc_id, source, target, weight, arc_type) # type: ignore
+                petri_net.add_arc(arc)
+            else:
+                print(f"Warning: Invalid arc {arc_id} from {source_id} to {target_id}")
+
+        nets.append(petri_net)
+
+    return nets
 
 def main():
-    # file_path = input("Enter the path to the .pnml file: ")
     file_path = "example.pnml"
-    # iterations = int(input("Enter the number of iterations: "))
-    iterations = 50
+    petri_nets = parse_pnml(file_path)
 
-    petri_net = parse_pnml(file_path)
-    print(petri_net.print_net())
-    executor = PetriNetExecutor(petri_net, iterations)
-    executor.execute()
+    for i, net in enumerate(petri_nets, 1):
+        print(f"\nPetri Net {i}:")
+        print(net)
 
 if __name__ == "__main__":
     main()
