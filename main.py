@@ -4,6 +4,8 @@ from random import randint
 from typing import List, Dict
 import threading
 from concurrent.futures import ThreadPoolExecutor
+import graphviz
+import os
 
 class Place:
     def __init__(self, id: str, label: str, marking: int = 0, x: int = 0, y: int = 0):
@@ -122,8 +124,14 @@ class PetriNetSimulator:
         self.petri_net = petri_net
         self.max_iterations = max_iterations
         self.iteration = 0
+        self.graph = graphviz.Digraph(comment=f'Petri Net: {petri_net.name}')
+        self.graph.attr(rankdir='LR')
+        self.thread_count = 0
+        self.thread_lock = threading.Lock()
+        self.draw_thread = None
 
     def simulate(self):
+        # self.draw_net_async()
         while self.iteration < self.max_iterations:
             enabled_transitions = self.petri_net.get_enabled_transitions()
             if not enabled_transitions:
@@ -138,17 +146,45 @@ class PetriNetSimulator:
 
             self.iteration += 1
             self.print_state()
+            # self.draw_net_async()
 
         print("\nSimulation completed.")
+        if self.draw_thread:
+            self.draw_thread.join()  # Wait for the last drawing to complete
+
+    def draw_net_async(self):
+        if self.draw_thread:
+            self.draw_thread.join()  # Wait for the previous drawing to complete
+        self.draw_thread = threading.Thread(target=self.draw_net)
+        self.draw_thread.start()
 
     def fire_transition(self, transition: Transition):
+        with self.thread_lock:
+            self.thread_count += 1
+            thread_id = self.thread_count
+        
         if transition.fire():
-            print(f"Fired transition: {transition}")
+            print(f"Thread {thread_id}: Fired transition: {transition}")
+        else:
+            print(f"Thread {thread_id}: Failed to fire transition: {transition}")
 
     def print_state(self):
         print("Current state:")
         for place in self.petri_net.places.values():
             print(f"  {place}")
+
+    def draw_net(self):
+        self.graph.clear()
+        for place in self.petri_net.places.values():
+            self.graph.node(place.id, f"{place.label}\n({place.marking})", shape='circle')
+        for transition in self.petri_net.transitions.values():
+            self.graph.node(transition.id, transition.label, shape='rect')
+        for arc in self.petri_net.arcs:
+            self.graph.edge(arc.source.id, arc.target.id, label=str(arc.weight))
+        
+        output_dir = 'petri_net_images'
+        os.makedirs(output_dir, exist_ok=True)
+        self.graph.render(f'{output_dir}/petri_net_step_{self.iteration}', format='png', cleanup=True)
 
 def parse_pnml(file_path: str) -> List[PetriNet]:
     tree = ET.parse(file_path)
@@ -210,9 +246,9 @@ def parse_pnml(file_path: str) -> List[PetriNet]:
 
 def main():
     # file_path = input("Enter the path to the .pnml file: ")
-    file_path = "teste2.pnml"
+    file_path = "teste4.pnml"
     # max_iterations = int(input("Enter the maximum number of iterations: "))
-    max_iterations = 4
+    max_iterations = 25
 
     petri_nets = parse_pnml(file_path)
     
