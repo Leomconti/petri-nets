@@ -14,7 +14,7 @@ class Place:
         self.marking = marking
         self.position = [x, y]
         self.offset = [0, 0]
-        self.semaphore = threading.Semaphore(1)
+        self.semaphore = threading.Semaphore(1) # Possivel melhoria, semaphoro nao binario, com a quantidade de markings, e quando acessar pegar pelo peso do arco, perguntar pro perofesosr
     
     def add_tokens(self, count: int):
         with self.semaphore:
@@ -32,6 +32,11 @@ class Place:
 
 class Transition:
     def __init__(self, id: str, label: str, x: int = 0, y: int = 0):
+        # Initialize a Transition in the Petri net
+        # id: unique identifier
+        # label: descriptive name
+        # x, y: coordinates for visualization
+        # input_arcs and output_arcs: connections to places
         self.id = id
         self.label = label
         self.position = [x, y]
@@ -46,9 +51,14 @@ class Transition:
         self.output_arcs.append(arc)
 
     def is_enabled(self):
+        # Check if the transition is enabled (can fire)
+        # A transition is enabled if all input places have enough tokens
         return all(arc.source.marking >= arc.weight for arc in self.input_arcs)
 
     def fire(self):
+        # Fire the transition if it's enabled
+        # Remove tokens from input places and add tokens to output places
+        # Returns True if fired successfully, False otherwise
         if not self.is_enabled():
             return False
 
@@ -68,6 +78,12 @@ class Transition:
 
 class Arc:
     def __init__(self, id: str, source, target, weight: int = 1, arc_type: str = 'normal'):
+        # Initialize an Arc in the Petri net
+        # id: unique identifier
+        # source: the source place or transition
+        # target: the target place or transition
+        # weight: number of tokens consumed/produced when the arc is traversed
+        # arc_type: type of arc normal, inhibitor -> WE DO NOT USE THIS :( fica pra prox
         self.id = id
         self.source = source
         self.target = target
@@ -121,6 +137,11 @@ class PetriNet:
 
 class PetriNetSimulator:
     def __init__(self, petri_net: PetriNet, max_iterations: int):
+        # Initialize the Petri net simulator
+        # petri_net: the Petri net to simulate
+        # max_iterations: maximum number of simulation steps
+        # graph: for visualization (using graphviz)
+        # thread_count and thread_lock: for managing concurrent transition firings
         self.petri_net = petri_net
         self.max_iterations = max_iterations
         self.iteration = 0
@@ -132,6 +153,8 @@ class PetriNetSimulator:
 
     def simulate(self):
         # self.draw_net_async()
+        # Run the simulation for the specified number of iterations
+        # Uses a ThreadPoolExecutor to fire enabled transitions concurrently
         while self.iteration < self.max_iterations:
             enabled_transitions = self.petri_net.get_enabled_transitions()
             if not enabled_transitions:
@@ -153,12 +176,14 @@ class PetriNetSimulator:
             self.draw_thread.join()  # Wait for the last drawing to complete
 
     def draw_net_async(self):
+        # Asynchronously draw the current state of the Petri net
         if self.draw_thread:
             self.draw_thread.join()  # Wait for the previous drawing to complete
         self.draw_thread = threading.Thread(target=self.draw_net)
         self.draw_thread.start()
 
     def fire_transition(self, transition: Transition):
+        # Fire a transition in a separate thread
         with self.thread_lock:
             self.thread_count += 1
             thread_id = self.thread_count
@@ -169,11 +194,13 @@ class PetriNetSimulator:
             print(f"Thread {thread_id}: Failed to fire transition: {transition}")
 
     def print_state(self):
+        # Print the current state of the Petri net (marking of all places)
         print("Current state:")
         for place in self.petri_net.places.values():
             print(f"  {place}")
 
     def draw_net(self):
+        # Draw the current state of the Petri net using graphviz
         self.graph.clear()
         for place in self.petri_net.places.values():
             self.graph.node(place.id, f"{place.label}\n({place.marking})", shape='circle')
@@ -187,6 +214,10 @@ class PetriNetSimulator:
         self.graph.render(f'{output_dir}/petri_net_step_{self.iteration}', format='png', cleanup=True)
 
 def parse_pnml(file_path: str) -> List[PetriNet]:
+    """
+    Essa funcao serve para fazer o parse de um arquivo .pnml
+    Ele vai buscar pelos elementos da rede de petri para funcionar.
+    """
     tree = ET.parse(file_path)
     root = tree.getroot()
     nets = []
@@ -248,7 +279,7 @@ def main():
     # file_path = input("Enter the path to the .pnml file: ")
     file_path = "teste4.pnml"
     # max_iterations = int(input("Enter the maximum number of iterations: "))
-    max_iterations = 25
+    max_iterations = 200
 
     petri_nets = parse_pnml(file_path)
     
