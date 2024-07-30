@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pnml>
+    <net id="diningPhilosophers" type="http://www.pnml.org/version-2009/grammar/ptnet">
+        <name>
+            <text>Dining Philosophers</text>
+        </name>
+        <page id="page1">
+            <!-- Places for forks -->
+            <place id="fork1">
+                <name>
+                    <text>Fork 1</text>
+                </name>
+                <initialMarking>
+                    <text>1</text>
+                </initialMarking>
+            </place>
+            <place id="fork2">
+                <name>
+                    <text>Fork 2</text>
+                </name>
+                <initialMarking>
+                    <text>1</text>
+                </initialMarking>
+            </place>
+            <place id="fork3">
+                <name>
+                    <text>Fork 3</text>
+                </name>
+                <initialMarking>
+                    <text>1</text>
+                </initialMarking>
+            </place>
+            <place id="fork4">
+                <name>
+                    <text>Fork 4</text>
+                </name>
+                <initialMarking>
+                    <text>1</text>
+                </initialMarking>
+            </place>
+            <place id="fork5">
+                <name>
+                    <text>Fork 5</text>
+                </name>
+                <initialMarking>
+                    <text>1</text>
+                </initialMarking>
+            </place>
+
+            <!-- Places for philosophers' states -->
+            <place id="thinking1">
+                <name>
+                    <text>Philosopher 1 Thinking</text>
+                </name>
+                <initialMarking>
+                    <text>1</text>
+                </initialMarking>
+            </place>
+            <place id="thinking2">
+                <name>
+                    <text>Philosopher 2 Thinking</text>
+                </name>
+                <initialMarking>
+                    <text>1</text>
+                </initialMarking>
+            </place>
+            <place id="thinking3">
+                <name>
+                    <text>Philosopher 3 Thinking</text>
+                </name>
+                <initialMarking>
+                    <text>1</text>
+                </initialMarking>
+            </place>
+            <place id="thinking4">
+                <name>
+                    <text>Philosopher 4 Thinking</text>
+                </name>
+                <initialMarking>
+                    <text>1</text>
+                </initialMarking>
+            </place>
+            <place id="thinking5">
+                <name>
+                    <text>Philosopher 5 Thinking</text>
+                </name>
+                <initialMarking>
+                    <text>1</text>
+                </initialMarking>
+            </place>
+            <place id="eating1">
+                <name>
+                    <text>Philosopher 1 Eating</text>
+                </name>
+            </place>
+            <place id="eating2">
+                <name>
+                    <text>Philosopher 2 Eating</text>
+                </name>
+            </place>
+            <place id="eating3">
+                <name>
+                    <text>Philosopher 3 Eating</text>
+                </name>
+            </place>
+            <place id="eating4">
+                <name>
+                    <text>Philosopher 4 Eating</text>
+                </name>
+            </place>
+            <place id="eating5">
+                <name>
+                    <text>Philosopher 5 Eating</text>
+                </name>
+            </place>
+
+            <!-- Transitions for philosophers picking up forks -->
+            <transition id="pickup1">
+                <name>
+                    <text>Philosopher 1 Pick Up</text>
+                </name>
+            </transition>
+            <transition id="pickup2">
+                <name>
+                    <text>Philosopher 2 Pick Up</text>
+                </name>
+            </transition>
+            <transition id="pickup3">
+                <name>
+                    <text>Philosopher 3 Pick Up</text>
+                </name>
+            </transition>
+            <transition id="pickup4">
+                <name>
+                    <text>Philosopher 4 Pick Up</text>
+                </name>
+            </transition>
+            <transition id="pickup5">
+                <name>
+                    <text>Philosopher 5 Pick Up</text>
+                </name>
+            </transition>
+
+            <!-- Transitions for philosophers putting down forks -->
+            <transition id="putdown1">
+                <name>
+                    <text>Philosopher 1 Put Down</text>
+                </name>
+            </transition>
+            <transition id="putdown2">
+                <name>
+                    <text>Philosopher 2 Put Down</text>
+                </name>
+            </transition>
+            <transition id="putdown3">
+                <name>
+                    <text>Philosopher 3 Put Down</text>
+                </name>
+            </transition>
+            <transition id="putdown4">
+                <name>
+                    <text>Philosopher 4 Put Down</text>
+                </name>
+            </transition>
+            <transition id="putdown5">
+                <name>
+                    <text>Philosopher 5 Put Down</text>
+                </name>
+            </transition>
+
+            <!-- Arcs for Philosopher 1 -->
+            <arc id="a1" source="thinking1" target="pickup1"/>
+            <arc id="a2" source="pickup1" target="fork1"/>
+            <arc id="a3" source="pickup1" target="fork5"/>
+            <arc id="a4" source="pickup1" target="eating1"/>
+            <arc id="a5" source="eating1" target="putdown1"/>
+            <arc id="a6" source="putdown1" target="fork1"/>
+            <arc id="a7" source="putdown1" target="fork5"/>
+            <arc id="a8" source="putdown1" target="thinking1"/>
+
+            <!-- Arcs for Philosopher 2 -->
+            <arc id="a9" source="thinking2" target="pickup2"/>
+            <arc id="a10" source="pickup2" target="fork2"/>
+            <arc id="a11" source="pickup2" target="fork1"/>
+            <arc id="a12" source="pickup2" target="eating2"/>
+            <arc id="a13" source="eating2" target="putdown2"/>
+            <arc id="a14" source="putdown2" target="fork2"/>
+            <arc id="a15" source="putdown2" target="fork1"/>
+            <arc id="a16" source="putdown2" target="thinking2"/>
+
+            <!-- Arcs for Philosopher 3 -->
+            <arc id="a17" source="thinking3" target="pickup3"/>
+            <arc id="a18" source="pickup3" target="fork3"/>
+            <arc id="a19" source="pickup3" target="fork2"/>
+            <arc id="a20" source="pickup3" target="eating3"/>
+            <arc id="a21" source="eating3" target="putdown3"/>
+            <arc id="a22" source="putdown3" target="fork3"/>
+            <arc id="a23" source="putdown3" target="fork2"/>
+            <arc id="a24" source="putdown3" target="thinking3"/>
+
+            <!-- Arcs for Philosopher 4 -->
+            <arc id="a25" source="thinking4" target="pickup4"/>
+            <arc id="a26" source="pickup4" target="fork4"/>
+            <arc id="a27" source="pickup4" target="fork3"/>
+            <arc id="a28" source="pickup4" target="eating4"/>
+            <arc id="a29" source="eating4" target="putdown4"/>
+            <arc id="a30" source="putdown4" target="fork4"/>
+            <arc id="a31" source="putdown4" target="fork3"/>
+            <arc id="a32" source="putdown4" target="thinking4"/>
+
+            <!-- Arcs for Philosopher 5 -->
+            <arc id="a33" source="thinking5" target="pickup5"/>
+            <arc id="a34" source="pickup5" target="fork5"/>
+            <arc id="a35" source="pickup5" target="fork4"/>
+            <arc id="a36" source="pickup5" target="eating5"/>
+            <arc id="a37" source="eating5" target="putdown5"/>
+            <arc id="a38" source="putdown5" target="fork5"/>
+            <arc id="a39" source="putdown5" target="fork4"/>
+            <arc id="a40" source="putdown5" target="thinking5"/>
+        </page>
+    </net>
+</pnml>

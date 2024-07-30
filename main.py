@@ -1,11 +1,13 @@
-import xml.etree.ElementTree as ET
-import time
-from random import randint
-from typing import List, Dict
-import threading
-from concurrent.futures import ThreadPoolExecutor
-import graphviz
 import os
+import threading
+import time
+import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
+from random import randint
+from typing import Dict, List
+
+import graphviz
+
 
 class Place:
     def __init__(self, id: str, label: str, marking: int = 0, x: int = 0, y: int = 0):
@@ -14,8 +16,10 @@ class Place:
         self.marking = marking
         self.position = [x, y]
         self.offset = [0, 0]
-        self.semaphore = threading.Semaphore(1) # Possivel melhoria, semaphoro nao binario, com a quantidade de markings, e quando acessar pegar pelo peso do arco, perguntar pro perofesosr
-    
+        self.semaphore = threading.Semaphore(
+            1
+        )  # Possivel melhoria, semaphoro nao binario, com a quantidade de markings, e quando acessar pegar pelo peso do arco, perguntar pro perofesosr
+
     def add_tokens(self, count: int):
         with self.semaphore:
             self.marking += count
@@ -29,6 +33,7 @@ class Place:
 
     def __str__(self):
         return f"{self.label} (tokens: {self.marking})"
+
 
 class Transition:
     def __init__(self, id: str, label: str, x: int = 0, y: int = 0):
@@ -76,8 +81,9 @@ class Transition:
     def __str__(self):
         return self.label
 
+
 class Arc:
-    def __init__(self, id: str, source, target, weight: int = 1, arc_type: str = 'normal'):
+    def __init__(self, id: str, source, target, weight: int = 1, arc_type: str = "normal"):
         # Initialize an Arc in the Petri net
         # id: unique identifier
         # source: the source place or transition
@@ -92,6 +98,7 @@ class Arc:
 
     def __str__(self):
         return f"{self.source} --> {self.target} (weight: {self.weight})"
+
 
 class PetriNet:
     def __init__(self):
@@ -135,26 +142,27 @@ class PetriNet:
         text += "\n---"
         return text
 
+
 class PetriNetSimulator:
     def __init__(self, petri_net: PetriNet, max_iterations: int):
-        # Initialize the Petri net simulator
-        # petri_net: the Petri net to simulate
-        # max_iterations: maximum number of simulation steps
-        # graph: for visualization (using graphviz)
-        # thread_count and thread_lock: for managing concurrent transition firings
         self.petri_net = petri_net
         self.max_iterations = max_iterations
         self.iteration = 0
-        self.graph = graphviz.Digraph(comment=f'Petri Net: {petri_net.name}')
-        self.graph.attr(rankdir='LR')
+        self.graph = graphviz.Digraph(comment=f"Petri Net: {petri_net.name}")
+        self.graph.attr(rankdir="LR")
         self.thread_count = 0
         self.thread_lock = threading.Lock()
         self.draw_thread = None
 
     def simulate(self):
-        # self.draw_net_async()
-        # Run the simulation for the specified number of iterations
-        # Uses a ThreadPoolExecutor to fire enabled transitions concurrently
+        """
+        Vamos rodar a simulacao aqui, ela roda em um while pelo numero de iteracoes, e eh interrombpido preemptivamente
+        caso nao tenham mais transicoes ativas para rodarem na rede.
+
+        O mais certo, seria ja criar as threads no simulador, uma para cada transicao da rede de petri. Porem, estamos criando
+        toda a vez uma para cada transicao ativa e rodando, assim nao tem threads "ociosas"
+        """
+        self.draw_net_async() # Salvar o grafico na pasta
         while self.iteration < self.max_iterations:
             enabled_transitions = self.petri_net.get_enabled_transitions()
             if not enabled_transitions:
@@ -168,26 +176,27 @@ class PetriNetSimulator:
                     future.result()
 
             self.iteration += 1
+            self.thread_count = 0  # zerar numero de thread para a proxima iteracao
             self.print_state()
-            # self.draw_net_async()
+            self.draw_net_async()
 
         print("\nSimulation completed.")
         if self.draw_thread:
             self.draw_thread.join()  # Wait for the last drawing to complete
 
     def draw_net_async(self):
-        # Asynchronously draw the current state of the Petri net
         if self.draw_thread:
             self.draw_thread.join()  # Wait for the previous drawing to complete
         self.draw_thread = threading.Thread(target=self.draw_net)
         self.draw_thread.start()
 
     def fire_transition(self, transition: Transition):
-        # Fire a transition in a separate thread
+        # soltar a transicao em uma thread separada
+        # isso eh meramente para pegarmos um "ID" para a thread, por isso thread_lock, pq se nao, poderia ter mais de uma com o msm numero
         with self.thread_lock:
             self.thread_count += 1
             thread_id = self.thread_count
-        
+
         if transition.fire():
             print(f"Thread {thread_id}: Fired transition: {transition}")
         else:
@@ -203,15 +212,16 @@ class PetriNetSimulator:
         # Draw the current state of the Petri net using graphviz
         self.graph.clear()
         for place in self.petri_net.places.values():
-            self.graph.node(place.id, f"{place.label}\n({place.marking})", shape='circle')
+            self.graph.node(place.id, f"{place.label}\n({place.marking})", shape="circle")
         for transition in self.petri_net.transitions.values():
-            self.graph.node(transition.id, transition.label, shape='rect')
+            self.graph.node(transition.id, transition.label, shape="rect")
         for arc in self.petri_net.arcs:
             self.graph.edge(arc.source.id, arc.target.id, label=str(arc.weight))
-        
-        output_dir = 'petri_net_images'
+
+        output_dir = "petri_net_images"
         os.makedirs(output_dir, exist_ok=True)
-        self.graph.render(f'{output_dir}/petri_net_step_{self.iteration}', format='png', cleanup=True)
+        self.graph.render(f"{output_dir}/petri_net_step_{self.iteration}", format="png", cleanup=True)
+
 
 def parse_pnml(file_path: str) -> List[PetriNet]:
     """
@@ -224,12 +234,12 @@ def parse_pnml(file_path: str) -> List[PetriNet]:
 
     for net_node in root.findall(".//net"):
         petri_net = PetriNet()
-        petri_net.id = net_node.get('id', petri_net.id)  # type: ignore
+        petri_net.id = net_node.get("id", petri_net.id)  # type: ignore
         name_node = net_node.find(".//name/text")
         petri_net.name = name_node.text if name_node is not None else petri_net.id  # type: ignore
 
         for place_node in net_node.findall(".//place"):
-            place_id = place_node.get('id')  # type: ignore
+            place_id = place_node.get("id")  # type: ignore
             name_node = place_node.find(".//name/text")
             label = name_node.text if name_node is not None else place_id  # type: ignore
             marking_node = place_node.find(".//initialMarking/text")
@@ -237,36 +247,36 @@ def parse_pnml(file_path: str) -> List[PetriNet]:
             graphics = place_node.find(".//graphics/position")
             x, y = 0, 0
             if graphics is not None:
-                x = int(float(graphics.get('x', 0)))
-                y = int(float(graphics.get('y', 0)))
-            place = Place(place_id, label, marking, x, y) # type: ignore
+                x = int(float(graphics.get("x", 0)))
+                y = int(float(graphics.get("y", 0)))
+            place = Place(place_id, label, marking, x, y)  # type: ignore
             petri_net.add_place(place)
 
         for transition_node in net_node.findall(".//transition"):
-            transition_id  = transition_node.get('id')  # type: ignore
+            transition_id = transition_node.get("id")  # type: ignore
             name_node = transition_node.find(".//name/text")
             label = name_node.text if name_node is not None else transition_id  # type: ignore
             graphics = transition_node.find(".//graphics/position")
             x, y = 0, 0
             if graphics is not None:
-                x = int(float(graphics.get('x', 0)))
-                y = int(float(graphics.get('y', 0)))
-            transition = Transition(transition_id, label, x, y) # type: ignore
+                x = int(float(graphics.get("x", 0)))
+                y = int(float(graphics.get("y", 0)))
+            transition = Transition(transition_id, label, x, y)  # type: ignore
             petri_net.add_transition(transition)
 
         for arc_node in net_node.findall(".//arc"):
-            arc_id = arc_node.get('id')  
-            source_id = arc_node.get('source')  
-            target_id = arc_node.get('target')  
+            arc_id = arc_node.get("id")
+            source_id = arc_node.get("source")
+            target_id = arc_node.get("target")
             inscription_node = arc_node.find(".//inscription/text")
             weight = int(inscription_node.text) if inscription_node is not None else 1  # type: ignore
-            arc_type = arc_node.get('type', 'normal')  
+            arc_type = arc_node.get("type", "normal")
 
             source = petri_net.places.get(source_id) or petri_net.transitions.get(source_id)  # type: ignore
             target = petri_net.places.get(target_id) or petri_net.transitions.get(target_id)  # type: ignore
 
             if source is not None and target is not None:
-                arc = Arc(arc_id, source, target, weight, arc_type) # type: ignore
+                arc = Arc(arc_id, source, target, weight, arc_type)  # type: ignore
                 petri_net.add_arc(arc)
             else:
                 print(f"Warning: Invalid arc {arc_id} from {source_id} to {target_id}")
@@ -275,19 +285,30 @@ def parse_pnml(file_path: str) -> List[PetriNet]:
 
     return nets
 
-def main():
-    # file_path = input("Enter the path to the .pnml file: ")
-    file_path = "teste4.pnml"
-    # max_iterations = int(input("Enter the maximum number of iterations: "))
-    max_iterations = 200
 
+def main():
+    # file_path = input("Cade o .pnml??: ")
+    file_path = "filo.pnml"
+    # max_iterations = int(input("Iteracoes: "))
+    max_iterations = 45
+
+    # DA PARA TER MAIS DE UMA REDE NO PNML APARENTEMENTE
     petri_nets = parse_pnml(file_path)
-    
-    for i, net in enumerate(petri_nets, 1):
-        print(f"\nSimulating Petri Net {i}:")
-        print(net)
-        simulator = PetriNetSimulator(net, max_iterations)
-        simulator.simulate()
+
+    # for i, net in enumerate(petri_nets, 1):
+    #     print(f"\nSimulating Petri Net {i}:")
+    #     print(net)
+    #     simulator = PetriNetSimulator(net, max_iterations)
+    #     simulator.simulate()
+
+    net = petri_nets[0]
+    print("#################################")
+    print("INICIANDO SIMULACAO PARA A REDE")
+    print(net)
+    print("#################################")
+    simulator = PetriNetSimulator(net, max_iterations)
+    simulator.simulate()
+
 
 if __name__ == "__main__":
     main()
